@@ -60,11 +60,12 @@ class Vector2():
   def __str__(self) -> str:
     return "<" + str(self.x) + ", " + str(self.y) + ">"
 
-
+def txt_len_size(length: int) -> Vector2:
+  return Vector2(length*10, CHAR_HEIGHT)
 def txt_size(string: str) -> Vector2:
-  return Vector2(len(string)*10, CHAR_HEIGHT)
-def txt_overlay(string: str) -> Vector2:
-  return txt_size(string) + (2, 2)
+  return txt_len_size(len(string))
+def add_overlay(size: Vector2) -> Vector2:
+  return size + (2, 2)
 
 
 def wait_released(key) -> None:
@@ -116,7 +117,7 @@ class Label(Hoverable):
 
   def draw(self, pos: Vector2 = None):
     pos = pos or self.position
-    size = txt_overlay(self.txt)
+    size = add_overlay(self.get_size())
     fill_rect(pos.x-1, pos.y-1, size.x, size.y, UNHOVERABLE_COLOR if self.hovered else self.get_overlay())
     draw_string(self.txt,pos.x,pos.y, UNHOVERABLE_COLOR if self.hovered else self.get_overlay(), self.get_color())
 
@@ -132,7 +133,7 @@ class Button(Label):
 
   def draw(self, pos: Vector2 = None):
     pos = pos or self.position
-    size = txt_overlay(self.txt)
+    size = add_overlay(self.get_size())
     fill_rect(pos.x-1, pos.y-1, size.x, size.y, default_hover_overlay if self.hovered else self.get_overlay())
     draw_string(self.txt,pos.x,pos.y, default_hover_overlay if self.hovered else self.get_overlay(), default_enabled_color if self.enabled else self.get_color())
 
@@ -147,22 +148,69 @@ class Focusable(Hoverable):
 
 
 class TextBox(Focusable):
-  def __init__(self, type_hint, *args, **kwargs):
-    super().__init__(self, *args, **kwargs)
-    # self.focusable = True
-    self.type_hint = type_hint
-
+  # TODO support digits and special chars
+  def __init__(self, hovered = False, size: int = 10, *args, **kwargs):
+    super().__init__(hovered, *args, **kwargs)
+    self.txt: str = ""
+    self.size: int = size
+    self.txt_pos: int = 0
+  
   def handle_input(self):
-    pass
+    for key in range(KEY_EXP, KEY_PLUS + 1):
+      if keydown(key):
+        self.txt += chr(key - KEY_EXP + ord("a"))
+        self.txt_pos += 1
+        self.draw()
+        wait_released(key)
+        return
     
-  def toggle(self):
-    super().toggle()
-    if self.enabled:
-      pass
-      # focused_text_box = self
-    else:
-      pass
-      # focused_text_box = None    
+    if keydown(KEY_LEFT):
+      self.txt_pos = max(0, self.txt_pos - 1)
+      self.draw()
+      wait_released(KEY_LEFT)
+      return
+    if keydown(KEY_RIGHT):
+      self.txt_pos = min(len(self.txt), self.txt_pos + 1)
+      self.draw()
+      wait_released(KEY_RIGHT)
+      return
+    
+    if keydown(KEY_UP):
+      self.txt_pos = 0
+      self.draw()
+      wait_released(KEY_UP)
+      return
+    if keydown(KEY_DOWN):
+      self.txt_pos = len(self.txt)
+      self.draw()
+      wait_released(KEY_DOWN)
+      return
+    
+    if keydown(KEY_BACKSPACE) and self.txt and self.txt_pos != 0:
+      self.txt = self.txt[:self.txt_pos-1] + self.txt[self.txt_pos:]
+      self.txt_pos -= 1
+      self.draw()
+      wait_released(KEY_BACKSPACE)
+      return
+  
+  def get_size(self) -> Vector2:
+    return txt_len_size(self.size)
+
+  def draw(self, pos: Vector2 = None):
+    pos = pos or self.position
+    size = self.get_size()
+    size_with_overlay = add_overlay(size)
+    offset: int = 0
+    if self.txt_pos > self.size:
+      offset = self.txt_pos - self.size
+    fill_rect(pos.x-1, pos.y-1, size_with_overlay.x, size_with_overlay.y, default_hover_overlay if self.hovered else self.get_overlay())
+    fill_rect(pos.x, pos.y, size.x, size.y, self.get_color())
+    draw_string(self.txt[offset:min(offset+self.size, len(self.txt))],pos.x,pos.y, black, self.get_color())
+    if self.focused:
+      fill_rect(pos.x + txt_len_size(self.txt_pos-offset).x, pos.y, 1, size.y, black)
+  
+  def get_color(self):
+    return self.color or white
 
 
 class Slider(Focusable):
@@ -247,8 +295,8 @@ def example() -> None:
   layout = [
     [Button("Az"), Button("By"), Button("Cx")],
     [slider, label],
-    [Button("Truc"), Button("Machin")]#,
-    # [TextBox()]
+    [Button("Truc"), Button("Machin")],
+    [TextBox()]
   ]
   print(start())
 
@@ -264,6 +312,8 @@ def parse_result() -> list[list]:
           row_result.append(canvas_item.txt)
       elif isinstance(canvas_item, Slider):
         row_result.append(canvas_item.value)
+      elif isinstance(canvas_item, TextBox):
+        row_result.append(canvas_item.txt)
 
   return result
 
