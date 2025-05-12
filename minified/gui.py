@@ -33,8 +33,9 @@ class Vector2:
 		except Exception as error:raise error
 	def __eq__(self,__o):return self.x==__o[0]and self.y==__o[1]
 	def __str__(self):return'<'+str(self.x)+', '+str(self.y)+'>'
-def txt_size(string):return Vector2(len(string)*10,CHAR_HEIGHT)
-def txt_overlay(string):return txt_size(string)+(2,2)
+def txt_len_size(length):return Vector2(length*10,CHAR_HEIGHT)
+def txt_size(string):return txt_len_size(len(string))
+def add_overlay(size):return size+(2,2)
 def wait_released(key):
 	while keydown(key):sleep(.05)
 class CanvasItem:
@@ -50,21 +51,31 @@ class Hoverable(CanvasItem):
 class Label(Hoverable):
 	def __init__(self,txt='Lorem Ipsum',*args,**kwargs):super().__init__(*args,**kwargs);self.txt=txt
 	def get_size(self):return txt_size(self.txt)
-	def draw(self,pos=_B):pos=pos or self.position;size=txt_overlay(self.txt);fill_rect(pos.x-1,pos.y-1,size.x,size.y,UNHOVERABLE_COLOR if self.hovered else self.get_overlay());draw_string(self.txt,pos.x,pos.y,UNHOVERABLE_COLOR if self.hovered else self.get_overlay(),self.get_color())
+	def draw(self,pos=_B):pos=pos or self.position;size=add_overlay(self.get_size());fill_rect(pos.x-1,pos.y-1,size.x,size.y,UNHOVERABLE_COLOR if self.hovered else self.get_overlay());draw_string(self.txt,pos.x,pos.y,UNHOVERABLE_COLOR if self.hovered else self.get_overlay(),self.get_color())
 class Button(Label):
 	def __init__(self,*args,enabled=_A,**kwargs):super().__init__(*args,**kwargs);self.enabled=enabled
 	def get_size(self):return txt_size(self.txt)
-	def draw(self,pos=_B):pos=pos or self.position;size=txt_overlay(self.txt);fill_rect(pos.x-1,pos.y-1,size.x,size.y,default_hover_overlay if self.hovered else self.get_overlay());draw_string(self.txt,pos.x,pos.y,default_hover_overlay if self.hovered else self.get_overlay(),default_enabled_color if self.enabled else self.get_color())
+	def draw(self,pos=_B):pos=pos or self.position;size=add_overlay(self.get_size());fill_rect(pos.x-1,pos.y-1,size.x,size.y,default_hover_overlay if self.hovered else self.get_overlay());draw_string(self.txt,pos.x,pos.y,default_hover_overlay if self.hovered else self.get_overlay(),default_enabled_color if self.enabled else self.get_color())
 	def toggle(self):self.enabled=not self.enabled
 class Focusable(Hoverable):
 	def __init__(self,hovered=_A,*args,**kwargs):super().__init__(hovered,*args,**kwargs);self.focused=_A
 class TextBox(Focusable):
-	def __init__(self,type_hint,*args,**kwargs):super().__init__(self,*args,**kwargs);self.type_hint=type_hint
-	def handle_input(self):0
-	def toggle(self):
-		super().toggle()
-		if self.enabled:0
-		else:0
+	def __init__(self,hovered=_A,size=10,*args,**kwargs):super().__init__(hovered,*args,**kwargs);self.txt='';self.size=size;self.txt_pos=0
+	def handle_input(self):
+		for key in range(KEY_EXP,KEY_PLUS+1):
+			if keydown(key):self.txt+=chr(key-KEY_EXP+ord('a'));self.txt_pos+=1;self.draw();wait_released(key);return
+		if keydown(KEY_LEFT):self.txt_pos=max(0,self.txt_pos-1);self.draw();wait_released(KEY_LEFT);return
+		if keydown(KEY_RIGHT):self.txt_pos=min(len(self.txt),self.txt_pos+1);self.draw();wait_released(KEY_RIGHT);return
+		if keydown(KEY_UP):self.txt_pos=0;self.draw();wait_released(KEY_UP);return
+		if keydown(KEY_DOWN):self.txt_pos=len(self.txt);self.draw();wait_released(KEY_DOWN);return
+		if keydown(KEY_BACKSPACE)and self.txt and self.txt_pos!=0:self.txt=self.txt[:self.txt_pos-1]+self.txt[self.txt_pos:];self.txt_pos-=1;self.draw();wait_released(KEY_BACKSPACE);return
+	def get_size(self):return txt_len_size(self.size)
+	def draw(self,pos=_B):
+		pos=pos or self.position;size=self.get_size();size_with_overlay=add_overlay(size);offset=0
+		if self.txt_pos>self.size:offset=self.txt_pos-self.size
+		fill_rect(pos.x-1,pos.y-1,size_with_overlay.x,size_with_overlay.y,default_hover_overlay if self.hovered else self.get_overlay());fill_rect(pos.x,pos.y,size.x,size.y,self.get_color());draw_string(self.txt[offset:min(offset+self.size,len(self.txt))],pos.x,pos.y,black,self.get_color())
+		if self.focused:fill_rect(pos.x+txt_len_size(self.txt_pos-offset).x,pos.y,1,size.y,black)
+	def get_color(self):return self.color or white
 class Slider(Focusable):
 	SLIDER_HEIGHT:int=4;CURSOR_SIZE:int=8
 	def __init__(self,min,max,step=1,initial_value=_B,size=100,*args,**kwargs):super().__init__(*args,**kwargs);self.focusable=_C;self.focused=_A;self.min=min;self.max=max;self.step=step;self.value=round((min+max)/2/step)*step if initial_value==_B else initial_value;self.size=size
@@ -89,7 +100,7 @@ def layout_clamp(position):y=clamp(position[1],0,len(layout)-1);x=clamp(position
 def example():
 	global layout;slider=Slider(0,91,1);label=Label('XX')
 	def slider_callback():label.txt='{0:2d}'.format(slider.value);label.draw()
-	slider.callback=slider_callback;slider_callback();layout=[[Button('Az'),Button('By'),Button('Cx')],[slider,label],[Button('Truc'),Button('Machin')]];print(start())
+	slider.callback=slider_callback;slider_callback();layout=[[Button('Az'),Button('By'),Button('Cx')],[slider,label],[Button('Truc'),Button('Machin')],[TextBox()]];print(start())
 def parse_result():
 	result=[]
 	for row in layout:
@@ -98,6 +109,7 @@ def parse_result():
 			if isinstance(canvas_item,Button):
 				if canvas_item.enabled:row_result.append(canvas_item.txt)
 			elif isinstance(canvas_item,Slider):row_result.append(canvas_item.value)
+			elif isinstance(canvas_item,TextBox):row_result.append(canvas_item.txt)
 	return result
 def start():
 	fill_rect(0,0,320,222,background)
