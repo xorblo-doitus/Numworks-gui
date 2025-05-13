@@ -63,8 +63,7 @@ class Focusable(Hoverable):
 class TextBox(Focusable):
 	def __init__(self,hovered=_A,size=10,*args,**kwargs):super().__init__(hovered,*args,**kwargs);self.txt='';self.size=size;self.txt_pos=0
 	def handle_input(self):
-		for key in range(KEY_EXP,KEY_PLUS+1):
-			if keydown(key):self.txt+=chr(key-KEY_EXP+ord('a'));self.txt_pos+=1;self.draw();wait_released(key);return
+		self._check_letters(KEY_EXP,KEY_LEFTPARENTHESIS,'a');self._check_letters(KEY_FOUR,KEY_DIVISION,'r');self._check_letters(KEY_ONE,KEY_PLUS,'w')
 		if keydown(KEY_LEFT):self.txt_pos=max(0,self.txt_pos-1);self.draw();wait_released(KEY_LEFT);return
 		if keydown(KEY_RIGHT):self.txt_pos=min(len(self.txt),self.txt_pos+1);self.draw();wait_released(KEY_RIGHT);return
 		if keydown(KEY_UP):self.txt_pos=0;self.draw();wait_released(KEY_UP);return
@@ -77,6 +76,9 @@ class TextBox(Focusable):
 		fill_rect(pos.x-1,pos.y-1,size_with_overlay.x,size_with_overlay.y,default_hover_overlay if self.hovered else self.get_overlay());fill_rect(pos.x,pos.y,size.x,size.y,self.get_color());draw_string(self.txt[offset:min(offset+self.size,len(self.txt))],pos.x,pos.y,black,self.get_color())
 		if self.focused:fill_rect(pos.x+txt_len_size(self.txt_pos-offset).x,pos.y,1,size.y,black)
 	def get_color(self):return self.color or white
+	def _check_letters(self,start,end,first_char):
+		for key in range(start,end+1):
+			if keydown(key):self.txt+=chr(key-start+ord(first_char));self.txt_pos+=1;self.draw();wait_released(key);return
 class Slider(Focusable):
 	SLIDER_HEIGHT:int=4;CURSOR_SIZE:int=8
 	def __init__(self,min,max,step=1,initial_value=_B,size=100,*args,**kwargs):super().__init__(*args,**kwargs);self.focusable=_C;self.focused=_A;self.min=min;self.max=max;self.step=step;self.value=round((min+max)/2/step)*step if initial_value==_B else initial_value;self.size=size

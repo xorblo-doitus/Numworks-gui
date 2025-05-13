@@ -157,13 +157,9 @@ class TextBox(Focusable):
     self.txt_pos: int = 0
   
   def handle_input(self):
-    for key in range(KEY_EXP, KEY_PLUS + 1):
-      if keydown(key):
-        self.txt += chr(key - KEY_EXP + ord("a"))
-        self.txt_pos += 1
-        self.draw()
-        wait_released(key)
-        return
+    self._check_letters(KEY_EXP, KEY_LEFTPARENTHESIS, "a")
+    self._check_letters(KEY_FOUR, KEY_DIVISION, "r")
+    self._check_letters(KEY_ONE, KEY_PLUS, "w")
     
     if keydown(KEY_LEFT):
       self.txt_pos = max(0, self.txt_pos - 1)
@@ -212,6 +208,15 @@ class TextBox(Focusable):
   
   def get_color(self):
     return self.color or white
+  
+  def _check_letters(self, start: int, end: int, first_char) -> None:
+    for key in range(start, end + 1):
+      if keydown(key):
+        self.txt += chr(key - start + ord(first_char))
+        self.txt_pos += 1
+        self.draw()
+        wait_released(key)
+        return
 
 
 class Slider(Focusable):
