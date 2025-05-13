@@ -19,6 +19,7 @@ MOVES = {
   KEY_RIGHT: (1, 0),
   KEY_LEFT: (-1, 0)
 }
+TPS = 100
 
 UNHOVERABLE_COLOR = grey
 
@@ -345,6 +346,8 @@ def start():
   focused: bool = False
 
   while not keydown(KEY_OK):
+    sleep(1/TPS)
+    
     old_hovering_pos = None
     
     if focused:

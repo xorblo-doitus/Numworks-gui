@@ -14,6 +14,7 @@ SPACEMENT_Y=4
 OUTLINE_SIZE=1
 CHAR_HEIGHT=18
 MOVES={KEY_UP:(0,-1),KEY_DOWN:(0,1),KEY_RIGHT:(1,0),KEY_LEFT:(-1,0)}
+TPS=100
 UNHOVERABLE_COLOR=grey
 background=white_blue
 default_color=light_brown
@@ -125,7 +126,7 @@ def start():
 		y+=canvas_items_height(1)+SPACEMENT_Y
 	hovering_pos=Vector2(0,0);hovering_canvas_item=layout_get(hovering_pos);focused=_A
 	while not keydown(KEY_OK):
-		old_hovering_pos=_B
+		sleep(1/TPS);old_hovering_pos=_B
 		if focused:hovering_canvas_item.handle_input()
 		else:
 			for key in MOVES:
