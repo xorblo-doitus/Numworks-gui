@@ -186,7 +186,7 @@ class TextBox(Focusable):
     self.txt_pos: int = 0
   
   def handle_input(self):
-    self._check_letters(KEY_EXP, KEY_LEFTPARENTHESIS, "a")
+    self._check_letters(KEY_EXP, KEY_RIGHTPARENTHESIS, "a")
     self._check_letters(KEY_FOUR, KEY_DIVISION, "r")
     self._check_letters(KEY_ONE, KEY_PLUS, "w")
     
