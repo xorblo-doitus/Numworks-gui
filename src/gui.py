@@ -149,6 +149,14 @@ class Focusable(Hoverable):
 
 
 class TextBox(Focusable):
+  _ADDITIONNAL_CHARS = {
+    KEY_TOOLBOX: '"',
+    # KEY_BACKSPACE: "%"", # TODO hhhhm
+    KEY_MINUS: " ",
+    KEY_ZERO: "?",
+    KEY_DOT: ".",
+  }
+  
   # TODO support digits and special chars
   def __init__(self, hovered = False, size: int = 10, *args, **kwargs):
     super().__init__(hovered, *args, **kwargs)
@@ -160,6 +168,15 @@ class TextBox(Focusable):
     self._check_letters(KEY_EXP, KEY_LEFTPARENTHESIS, "a")
     self._check_letters(KEY_FOUR, KEY_DIVISION, "r")
     self._check_letters(KEY_ONE, KEY_PLUS, "w")
+    
+    self._check_letters(KEY_XNT, KEY_VAR, ":")
+    for key, txt in self._ADDITIONNAL_CHARS.items():
+      if keydown(key):
+        self.txt += txt
+        self.txt_pos += 1
+        self.draw()
+        wait_released(key)
+        return
     
     if keydown(KEY_LEFT):
       self.txt_pos = max(0, self.txt_pos - 1)
