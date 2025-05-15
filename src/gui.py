@@ -8,6 +8,8 @@ EMULATED = False
 try: import os; EMULATED = True; print("Emulated")
 except: pass
 
+class Config:
+  DELAY_SEC_BETWEEN_RELEASE_CHECKS = 0.05
 
 SPACEMENT_X = 2
 SPACEMENT_Y = 4
@@ -71,7 +73,26 @@ def add_overlay(size: Vector2) -> Vector2:
 
 def wait_released(key) -> None:
   while keydown(key):
-    sleep(0.05)
+    sleep(Config.DELAY_SEC_BETWEEN_RELEASE_CHECKS)
+
+def repeat_while_pressed(callback, key: int, delay_sec: float = 0.05) -> None:
+  while keydown(key):
+    callback()
+    sleep(delay_sec)
+
+def delay_repeat(callback, key: int, first_press_delay_sec: float = 0.5, repeat_delay_sec: float = 0.05) -> None:
+  for __ in range(int(first_press_delay_sec/Config.DELAY_SEC_BETWEEN_RELEASE_CHECKS)):
+    sleep(Config.DELAY_SEC_BETWEEN_RELEASE_CHECKS)
+    if not keydown(key):
+      return
+  
+  repeat_while_pressed(callback, key, repeat_delay_sec)
+
+def check_action(callback, key: int, first_press_delay_sec: float = 0.5, repeat_delay_sec: float = 0.05) -> None:
+  if keydown(key):
+    callback()
+    delay_repeat(callback, key, first_press_delay_sec, repeat_delay_sec)
+
 
 class CanvasItem():
   def __init__(self, position: Vector2 = Vector2(10, 10), color = None, overlay = None, callback = lambda: None) -> None:
@@ -200,12 +221,7 @@ class TextBox(Focusable):
       wait_released(KEY_DOWN)
       return
     
-    if keydown(KEY_BACKSPACE) and self.txt and self.txt_pos != 0:
-      self.txt = self.txt[:self.txt_pos-1] + self.txt[self.txt_pos:]
-      self.txt_pos -= 1
-      self.draw()
-      wait_released(KEY_BACKSPACE)
-      return
+    check_action(self.delete_at_caret, KEY_BACKSPACE)
   
   def get_size(self) -> Vector2:
     return txt_len_size(self.size)
@@ -225,6 +241,14 @@ class TextBox(Focusable):
   
   def get_color(self):
     return self.color or white
+  
+  def delete_at_caret(self) -> None:
+    if not self.txt or self.txt_pos == 0:
+      return
+  
+    self.txt = self.txt[:self.txt_pos-1] + self.txt[self.txt_pos:]
+    self.txt_pos -= 1
+    self.draw()
   
   def _check_letters(self, start: int, end: int, first_char) -> None:
     for key in range(start, end + 1):

@@ -9,6 +9,7 @@ from kandinsky import*
 EMULATED=_A
 try:import os;EMULATED=_C;print('Emulated')
 except:pass
+class Config:DELAY_SEC_BETWEEN_RELEASE_CHECKS=.05
 SPACEMENT_X=2
 SPACEMENT_Y=4
 OUTLINE_SIZE=1
@@ -38,7 +39,16 @@ def txt_len_size(length):return Vector2(length*10,CHAR_HEIGHT)
 def txt_size(string):return txt_len_size(len(string))
 def add_overlay(size):return size+(2,2)
 def wait_released(key):
-	while keydown(key):sleep(.05)
+	while keydown(key):sleep(Config.DELAY_SEC_BETWEEN_RELEASE_CHECKS)
+def repeat_while_pressed(callback,key,delay_sec=.05):
+	while keydown(key):callback();sleep(delay_sec)
+def delay_repeat(callback,key,first_press_delay_sec=.5,repeat_delay_sec=.05):
+	for __ in range(int(first_press_delay_sec/Config.DELAY_SEC_BETWEEN_RELEASE_CHECKS)):
+		sleep(Config.DELAY_SEC_BETWEEN_RELEASE_CHECKS)
+		if not keydown(key):return
+	repeat_while_pressed(callback,key,repeat_delay_sec)
+def check_action(callback,key,first_press_delay_sec=.5,repeat_delay_sec=.05):
+	if keydown(key):callback();delay_repeat(callback,key,first_press_delay_sec,repeat_delay_sec)
 class CanvasItem:
 	def __init__(self,position=Vector2(10,10),color=_B,overlay=_B,callback=lambda:_B):self.position=position;self.color=color;self.overlay=overlay;self.callback=callback
 	def draw(self,pos=_B):'Virtual';raise NotImplementedError('draw() is not implemented on '+repr(self))
@@ -71,7 +81,7 @@ class TextBox(Focusable):
 		if keydown(KEY_RIGHT):self.txt_pos=min(len(self.txt),self.txt_pos+1);self.draw();wait_released(KEY_RIGHT);return
 		if keydown(KEY_UP):self.txt_pos=0;self.draw();wait_released(KEY_UP);return
 		if keydown(KEY_DOWN):self.txt_pos=len(self.txt);self.draw();wait_released(KEY_DOWN);return
-		if keydown(KEY_BACKSPACE)and self.txt and self.txt_pos!=0:self.txt=self.txt[:self.txt_pos-1]+self.txt[self.txt_pos:];self.txt_pos-=1;self.draw();wait_released(KEY_BACKSPACE);return
+		check_action(self.delete_at_caret,KEY_BACKSPACE)
 	def get_size(self):return txt_len_size(self.size)
 	def draw(self,pos=_B):
 		pos=pos or self.position;size=self.get_size();size_with_overlay=add_overlay(size);offset=0
@@ -79,6 +89,9 @@ class TextBox(Focusable):
 		fill_rect(pos.x-1,pos.y-1,size_with_overlay.x,size_with_overlay.y,default_hover_overlay if self.hovered else self.get_overlay());fill_rect(pos.x,pos.y,size.x,size.y,self.get_color());draw_string(self.txt[offset:min(offset+self.size,len(self.txt))],pos.x,pos.y,black,self.get_color())
 		if self.focused:fill_rect(pos.x+txt_len_size(self.txt_pos-offset).x,pos.y,1,size.y,black)
 	def get_color(self):return self.color or white
+	def delete_at_caret(self):
+		if not self.txt or self.txt_pos==0:return
+		self.txt=self.txt[:self.txt_pos-1]+self.txt[self.txt_pos:];self.txt_pos-=1;self.draw()
 	def _check_letters(self,start,end,first_char):
 		for key in range(start,end+1):
 			if keydown(key):self.txt+=chr(key-start+ord(first_char));self.txt_pos+=1;self.draw();wait_released(key);return
