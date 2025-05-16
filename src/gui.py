@@ -275,16 +275,8 @@ class Slider(Focusable):
     self.size: int = size
   
   def handle_input(self) -> None:
-    old_val = self.value
-    if keydown(KEY_LEFT):
-      self.value = max(self.value - (self.step * (10 if keydown(KEY_SHIFT) else 1)), self.min)
-      wait_released(KEY_LEFT)
-    elif keydown(KEY_RIGHT):
-      self.value = min(self.value + (self.step * (10 if keydown(KEY_SHIFT) else 1)), self.max)
-      wait_released(KEY_RIGHT)
-    if old_val != self.value:
-      self.callback()
-      self.draw()
+    check_action(self._decrease, KEY_LEFT)
+    check_action(self._increase, KEY_RIGHT)
   
   def get_size(self) -> Vector2:
     return Vector2(self.size, self.SLIDER_HEIGHT)
@@ -303,6 +295,20 @@ class Slider(Focusable):
     fill_rect(cursor_pos.x-1, cursor_pos.y-1, self.CURSOR_SIZE+2, self.CURSOR_SIZE+2, self.get_overlay())
     fill_rect(cursor_pos.x, cursor_pos.y, self.CURSOR_SIZE, self.CURSOR_SIZE, self.get_color())
     # draw_string(self.txt,pos.x,pos.y, default_hover_overlay if self.hovered else self.get_overlay(), default_enabled_color if self.enabled else self.get_color())
+  
+  def change_value_by(self, amount: float = 1) -> None:
+    self.value = clamp(self.value + amount,  self.min, self.max)
+    self.callback()
+    self.draw()
+  
+  def get_step(self) -> float:
+    return self.step * (10 if keydown(KEY_SHIFT) else 1)
+  
+  def _increase(self) -> None:
+    self.change_value_by(self.get_step())
+  def _decrease(self) -> None:
+    self.change_value_by(-self.get_step())
+  
 
 
 def canvas_items_width(canvas_items: list[CanvasItem]) -> int:
