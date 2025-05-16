@@ -98,14 +98,14 @@ class TextBox(Focusable):
 class Slider(Focusable):
 	SLIDER_HEIGHT:int=4;CURSOR_SIZE:int=8
 	def __init__(self,min,max,step=1,initial_value=_B,size=100,*args,**kwargs):super().__init__(*args,**kwargs);self.focusable=_C;self.focused=_A;self.min=min;self.max=max;self.step=step;self.value=round((min+max)/2/step)*step if initial_value==_B else initial_value;self.size=size
-	def handle_input(self):
-		old_val=self.value
-		if keydown(KEY_LEFT):self.value=max(self.value-self.step*(10 if keydown(KEY_SHIFT)else 1),self.min);wait_released(KEY_LEFT)
-		elif keydown(KEY_RIGHT):self.value=min(self.value+self.step*(10 if keydown(KEY_SHIFT)else 1),self.max);wait_released(KEY_RIGHT)
-		if old_val!=self.value:self.callback();self.draw()
+	def handle_input(self):check_action(self._decrease,KEY_LEFT);check_action(self._increase,KEY_RIGHT)
 	def get_size(self):return Vector2(self.size,self.SLIDER_HEIGHT)
 	def get_color(self):return default_enabled_color if self.focused else super().get_color()
 	def draw(self,pos=_B):pos=(pos or self.position).duplicate();size=self.get_size();fill_rect(pos.x-1,pos.y,size.x+1,canvas_items_height(1)+1,background);cursor_pos=pos+Vector2(int((self.value-self.min)/(self.max-self.min)*(size.x-self.CURSOR_SIZE)),int((canvas_items_height(1)-self.CURSOR_SIZE)/2));pos.y+=int((canvas_items_height(1)-size.y)/2);fill_rect(pos.x-1,pos.y-1,size.x+2,size.y+2,self.get_overlay());fill_rect(pos.x,pos.y,size.x,size.y,self.get_color());fill_rect(cursor_pos.x-1,cursor_pos.y-1,self.CURSOR_SIZE+2,self.CURSOR_SIZE+2,self.get_overlay());fill_rect(cursor_pos.x,cursor_pos.y,self.CURSOR_SIZE,self.CURSOR_SIZE,self.get_color())
+	def change_value_by(self,amount=1):self.value=clamp(self.value+amount,self.min,self.max);self.callback();self.draw()
+	def get_step(self):return self.step*(10 if keydown(KEY_SHIFT)else 1)
+	def _increase(self):self.change_value_by(self.get_step())
+	def _decrease(self):self.change_value_by(-self.get_step())
 def canvas_items_width(canvas_items):
 	result=len(canvas_items)*(OUTLINE_SIZE+SPACEMENT_X)-SPACEMENT_X
 	for canvas_item in canvas_items:result+=canvas_item.get_size().x
