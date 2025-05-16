@@ -178,7 +178,7 @@ class TextBox(Focusable):
     KEY_DOT: ".",
   }
   
-  # TODO support digits and special chars
+  # TODO support digits
   def __init__(self, hovered = False, size: int = 10, *args, **kwargs):
     super().__init__(hovered, *args, **kwargs)
     self.txt: str = ""
