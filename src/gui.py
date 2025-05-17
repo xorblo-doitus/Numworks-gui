@@ -186,9 +186,9 @@ class TextBox(Focusable):
     self.txt_pos: int = 0
   
   def handle_input(self):
-    self._check_letters(KEY_EXP, KEY_RIGHTPARENTHESIS, "a")
-    self._check_letters(KEY_FOUR, KEY_DIVISION, "r")
-    self._check_letters(KEY_ONE, KEY_PLUS, "w")
+    self._check_letters(KEY_EXP, KEY_RIGHTPARENTHESIS, "A" if keydown(KEY_SHIFT) else "a")
+    self._check_letters(KEY_FOUR, KEY_DIVISION, "R" if keydown(KEY_SHIFT) else "r")
+    self._check_letters(KEY_ONE, KEY_PLUS, "W" if keydown(KEY_SHIFT) else "w")
     
     self._check_letters(KEY_XNT, KEY_VAR, ":")
     for key, txt in self._ADDITIONNAL_CHARS.items():

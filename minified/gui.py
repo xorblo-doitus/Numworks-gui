@@ -74,7 +74,7 @@ class TextBox(Focusable):
 	_ADDITIONNAL_CHARS={KEY_TOOLBOX:'"',KEY_MINUS:' ',KEY_ZERO:'?',KEY_DOT:'.'}
 	def __init__(self,hovered=_A,size=10,*args,**kwargs):super().__init__(hovered,*args,**kwargs);self.txt='';self.size=size;self.txt_pos=0
 	def handle_input(self):
-		self._check_letters(KEY_EXP,KEY_RIGHTPARENTHESIS,'a');self._check_letters(KEY_FOUR,KEY_DIVISION,'r');self._check_letters(KEY_ONE,KEY_PLUS,'w');self._check_letters(KEY_XNT,KEY_VAR,':')
+		self._check_letters(KEY_EXP,KEY_RIGHTPARENTHESIS,'A'if keydown(KEY_SHIFT)else'a');self._check_letters(KEY_FOUR,KEY_DIVISION,'R'if keydown(KEY_SHIFT)else'r');self._check_letters(KEY_ONE,KEY_PLUS,'W'if keydown(KEY_SHIFT)else'w');self._check_letters(KEY_XNT,KEY_VAR,':')
 		for(key,txt)in self._ADDITIONNAL_CHARS.items():
 			if keydown(key):self.txt+=txt;self.txt_pos+=1;self.draw();wait_released(key);return
 		if keydown(KEY_LEFT):self.txt_pos=max(0,self.txt_pos-1);self.draw();wait_released(KEY_LEFT);return
