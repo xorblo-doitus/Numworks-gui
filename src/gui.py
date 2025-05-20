@@ -23,13 +23,13 @@ MOVES = {
 TPS = 100
 
 class ColorName:
-  unhoverable_color = "unhoverable_color"
+  unhoverable = "unhoverable"
   background = "background"
   color = "color"
   overlay = "overlay"
-  enabled_color = "enabled_color"
-  focused_color = "focused_color"
-  hover_overlay = "hover_overlay"
+  enabled = "enabled"
+  focused = "focused"
+  hovered = "hovered"
 
 BASE_STYLE: "Style" = None
 class Style:
@@ -47,15 +47,15 @@ class Style:
     
     return (255, 125, 125)
 
-BASE_STYLE: Style = Style(
-  unhoverable_color = (122,122,122),
-  background = (200,255,255),
-  color = (255,132,61),
-  overlay = (89,37,6),
-  enabled_color = (0,153,152),
-  focused_color = (0,153,152),
-  hover_overlay = (255,255,255),
-)
+BASE_STYLE: Style = Style(**{
+  ColorName.unhoverable: (122,122,122),
+  ColorName.background: (200,255,255),
+  ColorName.color: (255,132,61),
+  ColorName.overlay: (89,37,6),
+  ColorName.enabled: (0,153,152),
+  ColorName.focused: (0,153,152),
+  ColorName.hovered: (255,255,255),
+})
 
 
 layout: list[list["CanvasItem"]] = []
@@ -160,7 +160,7 @@ class Hoverable(CanvasItem):
     self.hovered: bool = False
   
   def get_overlay(self):
-    return self.get_style_color(ColorName.hover_overlay) if self.hovered else super().get_overlay()
+    return self.get_style_color(ColorName.hovered) if self.hovered else super().get_overlay()
 
 
 class Toggleable(CanvasItem):
@@ -172,7 +172,7 @@ class Toggleable(CanvasItem):
     self.enabled = not self.enabled
   
   def get_color(self):
-    return self.get_style_color(ColorName.enabled_color) if self.enabled else super().get_color()
+    return self.get_style_color(ColorName.enabled) if self.enabled else super().get_color()
 
 
 class Focusable(Hoverable):
@@ -182,7 +182,7 @@ class Focusable(Hoverable):
     self.focused = False
   
   def get_color(self):
-    return self.get_style_color(ColorName.focused_color) if self.focused else super().get_color()
+    return self.get_style_color(ColorName.focused) if self.focused else super().get_color()
 
 
 class Label(Hoverable):
@@ -197,8 +197,8 @@ class Label(Hoverable):
   def draw(self, pos: Vector2 = None):
     pos = pos or self.position
     size = add_overlay(self.get_size())
-    fill_rect(pos.x-1, pos.y-1, size.x, size.y, self.get_style_color(ColorName.unhoverable_color) if self.hovered else self.get_overlay())
-    draw_string(self.txt,pos.x,pos.y, self.get_style_color(ColorName.unhoverable_color) if self.hovered else self.get_overlay(), self.get_color())
+    fill_rect(pos.x-1, pos.y-1, size.x, size.y, self.get_style_color(ColorName.unhoverable) if self.hovered else self.get_overlay())
+    draw_string(self.txt,pos.x,pos.y, self.get_style_color(ColorName.unhoverable) if self.hovered else self.get_overlay(), self.get_color())
 
 
 class Button(Label, Toggleable):
