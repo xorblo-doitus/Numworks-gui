@@ -1,9 +1,8 @@
 from math import *
 from ion import *
-from colors import *
 from time import sleep
-
 from kandinsky import *
+
 EMULATED = False
 try: import os; EMULATED = True; print("Emulated")
 except: pass
@@ -23,13 +22,42 @@ MOVES = {
 }
 TPS = 100
 
-UNHOVERABLE_COLOR = grey
+class ColorName:
+  unhoverable_color = "unhoverable_color"
+  background = "background"
+  color = "color"
+  overlay = "overlay"
+  enabled_color = "enabled_color"
+  focused_color = "focused_color"
+  hover_overlay = "hover_overlay"
 
-background = white_blue
-default_color = light_brown
-default_overlay = dark_brown
-default_enabled_color = dark_blue
-default_hover_overlay = white
+BASE_STYLE: "Style" = None
+class Style:
+  def __init__(self, fallback: "Style" = None, **colors: dict[str, "ColorOutput"]) -> None:
+    self.fallback: Style = fallback if fallback else BASE_STYLE
+    for name in colors:
+      self.__setattr__(name, colors[name])
+  
+  def get(self, color: str) -> "ColorOutput":
+    if hasattr(self, color):
+      return self.__getattribute__(color)
+  
+    if self.fallback:
+      return self.fallback.get(color)
+    
+    return (255, 125, 125)
+
+BASE_STYLE: Style = Style(
+  unhoverable_color = (122,122,122),
+  background = (200,255,255),
+  color = (255,132,61),
+  overlay = (89,37,6),
+  enabled_color = (0,153,152),
+  focused_color = (0,153,152),
+  hover_overlay = (255,255,255),
+)
+
+
 layout: list[list["CanvasItem"]] = []
 # focused_text_box = None
 
@@ -95,10 +123,9 @@ def check_action(callback, key: int, first_press_delay_sec: float = 0.5, repeat_
 
 
 class CanvasItem():
-  def __init__(self, position: Vector2 = Vector2(10, 10), color = None, overlay = None, callback = lambda: None) -> None:
+  def __init__(self, position: Vector2 = Vector2(10, 10), callback = lambda: None, style: Style = None) -> None:
     self.position = position
-    self.color = color
-    self.overlay = overlay
+    self.style = style
     self.callback = callback
   
   def draw(self, pos: Vector2 = None) -> None:
@@ -109,10 +136,18 @@ class CanvasItem():
     """Virtual"""
     raise NotImplementedError("get_size() is not implemented on " + repr(self))
   
+  def get_style_color(self, name: str) -> "ColorOutput":
+    return self.get_style().get(name)
+  
+  def get_style(self) -> Style:
+    return self.style or BASE_STYLE
+  
+  
   def get_color(self):
-    return self.color or default_color
+    return self.get_style_color(ColorName.color)
+  
   def get_overlay(self):
-    return self.overlay or default_overlay
+    return self.get_style_color(ColorName.overlay)
   
   def handle_input(self) -> None:
     """Virtual"""
@@ -120,12 +155,34 @@ class CanvasItem():
 
 
 class Hoverable(CanvasItem):
-  def __init__(self, overlay = None, hovered: bool = False, *args, **kwargs) -> None:
+  def __init__(self, hovered: bool = False, *args, **kwargs) -> None:
     super().__init__(*args, **kwargs)
-    self.hovered: bool = hovered
+    self.hovered: bool = False
   
   def get_overlay(self):
-    return default_hover_overlay if self.hovered else super().get_overlay()
+    return self.get_style_color(ColorName.hover_overlay) if self.hovered else super().get_overlay()
+
+
+class Toggleable(CanvasItem):
+  def __init__(self, overlay = None, enabled: bool = False, *args, **kwargs) -> None:
+    super().__init__(*args, **kwargs)
+    self.enabled: bool = enabled
+  
+  def toggle(self):
+    self.enabled = not self.enabled
+  
+  def get_color(self):
+    return self.get_style_color(ColorName.enabled_color) if self.enabled else super().get_color()
+
+
+class Focusable(Hoverable):
+  """Press EXE to focus and be the one to parse inputs. Press EXE again to leave focus."""
+  def __init__(self, hovered: bool = False, *args, **kwargs) -> None:
+    super().__init__(hovered, *args, **kwargs)
+    self.focused = False
+  
+  def get_color(self):
+    return self.get_style_color(ColorName.focused_color) if self.focused else super().get_color()
 
 
 class Label(Hoverable):
@@ -140,15 +197,14 @@ class Label(Hoverable):
   def draw(self, pos: Vector2 = None):
     pos = pos or self.position
     size = add_overlay(self.get_size())
-    fill_rect(pos.x-1, pos.y-1, size.x, size.y, UNHOVERABLE_COLOR if self.hovered else self.get_overlay())
-    draw_string(self.txt,pos.x,pos.y, UNHOVERABLE_COLOR if self.hovered else self.get_overlay(), self.get_color())
+    fill_rect(pos.x-1, pos.y-1, size.x, size.y, self.get_style_color(ColorName.unhoverable_color) if self.hovered else self.get_overlay())
+    draw_string(self.txt,pos.x,pos.y, self.get_style_color(ColorName.unhoverable_color) if self.hovered else self.get_overlay(), self.get_color())
 
 
-class Button(Label):
+class Button(Label, Toggleable):
   def __init__(self, *args, enabled: bool = False, **kwargs):
     super().__init__(*args, **kwargs)
     self.enabled: bool = enabled
-    # self.hovered: bool = hovered
 
   def get_size(self) -> Vector2:
     return txt_size(self.txt)
@@ -156,17 +212,8 @@ class Button(Label):
   def draw(self, pos: Vector2 = None):
     pos = pos or self.position
     size = add_overlay(self.get_size())
-    fill_rect(pos.x-1, pos.y-1, size.x, size.y, default_hover_overlay if self.hovered else self.get_overlay())
-    draw_string(self.txt,pos.x,pos.y, default_hover_overlay if self.hovered else self.get_overlay(), default_enabled_color if self.enabled else self.get_color())
-
-  def toggle(self):
-    self.enabled = not self.enabled
-
-
-class Focusable(Hoverable):
-  def __init__(self, hovered: bool = False, *args, **kwargs) -> None:
-    super().__init__(hovered, *args, **kwargs)
-    self.focused = False
+    fill_rect(pos.x-1, pos.y-1, size.x, size.y, self.get_overlay())
+    draw_string(self.txt,pos.x,pos.y, self.get_overlay(), self.get_color())
 
 
 class TextBox(Focusable):
@@ -233,14 +280,14 @@ class TextBox(Focusable):
     offset: int = 0
     if self.txt_pos > self.size:
       offset = self.txt_pos - self.size
-    fill_rect(pos.x-1, pos.y-1, size_with_overlay.x, size_with_overlay.y, default_hover_overlay if self.hovered else self.get_overlay())
+    fill_rect(pos.x-1, pos.y-1, size_with_overlay.x, size_with_overlay.y, self.get_overlay())
     fill_rect(pos.x, pos.y, size.x, size.y, self.get_color())
-    draw_string(self.txt[offset:min(offset+self.size, len(self.txt))],pos.x,pos.y, black, self.get_color())
+    draw_string(self.txt[offset:min(offset+self.size, len(self.txt))],pos.x,pos.y, (0, 0, 0), self.get_color()) # TODO unhardcode value
     if self.focused:
-      fill_rect(pos.x + txt_len_size(self.txt_pos-offset).x, pos.y, 1, size.y, black)
+      fill_rect(pos.x + txt_len_size(self.txt_pos-offset).x, pos.y, 1, size.y, (0, 0, 0)) # TODO unhardcode value
   
   def get_color(self):
-    return self.color or white
+    return (255, 255, 255) # TODO unhardcode value
   
   def delete_at_caret(self) -> None:
     if not self.txt or self.txt_pos == 0:
@@ -281,13 +328,10 @@ class Slider(Focusable):
   def get_size(self) -> Vector2:
     return Vector2(self.size, self.SLIDER_HEIGHT)
   
-  def get_color(self):
-    return default_enabled_color if self.focused else super().get_color()
-  
   def draw(self, pos: Vector2 = None) -> None:
     pos = (pos or self.position).duplicate()
     size = self.get_size()
-    fill_rect(pos.x-1, pos.y, size.x+1, canvas_items_height(1) + 1, background)
+    fill_rect(pos.x-1, pos.y, size.x+1, canvas_items_height(1) + 1, self.get_style_color(ColorName.background))
     cursor_pos = pos + Vector2(int((self.value - self.min) / (self.max - self.min) * (size.x - self.CURSOR_SIZE)), int((canvas_items_height(1) - self.CURSOR_SIZE) / 2))
     pos.y += int((canvas_items_height(1) - size.y) / 2)
     fill_rect(pos.x-1, pos.y-1, size.x+2, size.y+2, self.get_overlay())
@@ -372,7 +416,7 @@ def parse_result() -> list[list]:
 
 
 def start():
-  fill_rect(0, 0, 320, 222, background)
+  fill_rect(0, 0, 320, 222, BASE_STYLE.get(ColorName.background))
 
   for row in layout:
     for canvas_item in row:
