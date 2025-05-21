@@ -3,7 +3,6 @@ _B=None
 _A=False
 from math import*
 from ion import*
-from colors import*
 from time import sleep
 from kandinsky import*
 EMULATED=_A
@@ -16,12 +15,22 @@ OUTLINE_SIZE=1
 CHAR_HEIGHT=18
 MOVES={KEY_UP:(0,-1),KEY_DOWN:(0,1),KEY_RIGHT:(1,0),KEY_LEFT:(-1,0)}
 TPS=100
-UNHOVERABLE_COLOR=grey
-background=white_blue
-default_color=light_brown
-default_overlay=dark_brown
-default_enabled_color=dark_blue
-default_hover_overlay=white
+def fetch_members(parent,into):
+	"Fetches parent class' members into the locals() provided. This is a workaround for MicroPython."
+	if EMULATED:return
+	for member in parent:
+		if not member.startswith('__'):into[member]=parent[member]
+class ColorName:unhoverable='unhoverable';background='background';color='color';overlay='overlay';enabled='enabled';focused='focused';hovered='hovered'
+BASE_STYLE=_B
+class Style:
+	def __init__(self,fallback=_B,**colors):
+		self.fallback=fallback if fallback else BASE_STYLE
+		for name in colors:setattr(self,name,colors[name])
+	def get(self,color):
+		if hasattr(self,color):return getattr(self,color)
+		if self.fallback:return self.fallback.get(color)
+		return 255,125,125
+BASE_STYLE=Style(**{ColorName.unhoverable:(122,122,122),ColorName.background:(200,255,255),ColorName.color:(255,132,61),ColorName.overlay:(89,37,6),ColorName.enabled:(0,153,152),ColorName.focused:(0,153,152),ColorName.hovered:(255,255,255)})
 layout=[]
 class Vector2:
 	def __init__(self,x=0,y=0):assert type(x)==int;assert type(y)==int;self.x=x;self.y=y
@@ -50,26 +59,35 @@ def delay_repeat(callback,key,first_press_delay_sec=.5,repeat_delay_sec=.05):
 def check_action(callback,key,first_press_delay_sec=.5,repeat_delay_sec=.05):
 	if keydown(key):callback();delay_repeat(callback,key,first_press_delay_sec,repeat_delay_sec)
 class CanvasItem:
-	def __init__(self,position=Vector2(10,10),color=_B,overlay=_B,callback=lambda:_B):self.position=position;self.color=color;self.overlay=overlay;self.callback=callback
+	def __init__(self,position=Vector2(10,10),callback=lambda:_B,style=_B):self.position=position;self.style=style;self.callback=callback
 	def draw(self,pos=_B):'Virtual';raise NotImplementedError('draw() is not implemented on '+repr(self))
 	def get_size(self):'Virtual';raise NotImplementedError('get_size() is not implemented on '+repr(self))
-	def get_color(self):return self.color or default_color
-	def get_overlay(self):return self.overlay or default_overlay
+	def get_style_color(self,name):return self.get_style().get(name)
+	def get_style(self):return self.style or BASE_STYLE
+	def get_color(self):return self.get_style_color(ColorName.color)
+	def get_overlay(self):return self.get_style_color(ColorName.overlay)
 	def handle_input(self):'Virtual';raise NotImplementedError('handle_input() is not implemented on '+repr(self))
 class Hoverable(CanvasItem):
-	def __init__(self,overlay=_B,hovered=_A,*args,**kwargs):super().__init__(*args,**kwargs);self.hovered=hovered
-	def get_overlay(self):return default_hover_overlay if self.hovered else super().get_overlay()
+	def __init__(self,hovered=_A,*args,**kwargs):super().__init__(*args,**kwargs);self.hovered=_A
+	def get_overlay(self):return self.get_style_color(ColorName.hovered)if self.hovered else super().get_overlay()
+class Toggleable(CanvasItem):
+	_Togleable_locals=locals()
+	def __init__(self,overlay=_B,enabled=_A,*args,**kwargs):super().__init__(*args,**kwargs);self.enabled=enabled
+	def toggle(self):self.enabled=not self.enabled
+	def get_color(self):return self.get_style_color(ColorName.enabled)if self.enabled else super().get_color()
+class Focusable(Hoverable):
+	'Press EXE to focus and be the one to parse inputs. Press EXE again to leave focus.'
+	def __init__(self,hovered=_A,*args,**kwargs):super().__init__(hovered,*args,**kwargs);self.focused=_A
+	def get_color(self):return self.get_style_color(ColorName.focused)if self.focused else super().get_color()
 class Label(Hoverable):
 	def __init__(self,txt='Lorem Ipsum',*args,**kwargs):super().__init__(*args,**kwargs);self.txt=txt
 	def get_size(self):return txt_size(self.txt)
-	def draw(self,pos=_B):pos=pos or self.position;size=add_overlay(self.get_size());fill_rect(pos.x-1,pos.y-1,size.x,size.y,UNHOVERABLE_COLOR if self.hovered else self.get_overlay());draw_string(self.txt,pos.x,pos.y,UNHOVERABLE_COLOR if self.hovered else self.get_overlay(),self.get_color())
-class Button(Label):
-	def __init__(self,*args,enabled=_A,**kwargs):super().__init__(*args,**kwargs);self.enabled=enabled
+	def draw(self,pos=_B):pos=pos or self.position;size=add_overlay(self.get_size());fill_rect(pos.x-1,pos.y-1,size.x,size.y,self.get_style_color(ColorName.unhoverable)if self.hovered else self.get_overlay());draw_string(self.txt,pos.x,pos.y,self.get_style_color(ColorName.unhoverable)if self.hovered else self.get_overlay(),self.get_color())
+class Button(Label,Toggleable):
+	fetch_members(Toggleable._Togleable_locals,locals())
+	def __init__(self,*args,**kwargs):Label.__init__(self,*args,**kwargs);Toggleable.__init__(self,*args,**kwargs)
 	def get_size(self):return txt_size(self.txt)
-	def draw(self,pos=_B):pos=pos or self.position;size=add_overlay(self.get_size());fill_rect(pos.x-1,pos.y-1,size.x,size.y,default_hover_overlay if self.hovered else self.get_overlay());draw_string(self.txt,pos.x,pos.y,default_hover_overlay if self.hovered else self.get_overlay(),default_enabled_color if self.enabled else self.get_color())
-	def toggle(self):self.enabled=not self.enabled
-class Focusable(Hoverable):
-	def __init__(self,hovered=_A,*args,**kwargs):super().__init__(hovered,*args,**kwargs);self.focused=_A
+	def draw(self,pos=_B):pos=pos or self.position;size=add_overlay(self.get_size());fill_rect(pos.x-1,pos.y-1,size.x,size.y,self.get_overlay());draw_string(self.txt,pos.x,pos.y,self.get_overlay(),self.get_color())
 class TextBox(Focusable):
 	_ADDITIONNAL_CHARS={KEY_TOOLBOX:'"',KEY_MINUS:' ',KEY_ZERO:'?',KEY_DOT:'.'}
 	def __init__(self,hovered=_A,size=10,*args,**kwargs):super().__init__(hovered,*args,**kwargs);self.txt='';self.size=size;self.txt_pos=0
@@ -86,9 +104,9 @@ class TextBox(Focusable):
 	def draw(self,pos=_B):
 		pos=pos or self.position;size=self.get_size();size_with_overlay=add_overlay(size);offset=0
 		if self.txt_pos>self.size:offset=self.txt_pos-self.size
-		fill_rect(pos.x-1,pos.y-1,size_with_overlay.x,size_with_overlay.y,default_hover_overlay if self.hovered else self.get_overlay());fill_rect(pos.x,pos.y,size.x,size.y,self.get_color());draw_string(self.txt[offset:min(offset+self.size,len(self.txt))],pos.x,pos.y,black,self.get_color())
-		if self.focused:fill_rect(pos.x+txt_len_size(self.txt_pos-offset).x,pos.y,1,size.y,black)
-	def get_color(self):return self.color or white
+		fill_rect(pos.x-1,pos.y-1,size_with_overlay.x,size_with_overlay.y,self.get_overlay());fill_rect(pos.x,pos.y,size.x,size.y,self.get_color());draw_string(self.txt[offset:min(offset+self.size,len(self.txt))],pos.x,pos.y,(0,0,0),self.get_color())
+		if self.focused:fill_rect(pos.x+txt_len_size(self.txt_pos-offset).x,pos.y,1,size.y,(0,0,0))
+	def get_color(self):return 255,255,255
 	def delete_at_caret(self):
 		if not self.txt or self.txt_pos==0:return
 		self.txt=self.txt[:self.txt_pos-1]+self.txt[self.txt_pos:];self.txt_pos-=1;self.draw()
@@ -100,8 +118,7 @@ class Slider(Focusable):
 	def __init__(self,min,max,step=1,initial_value=_B,size=100,*args,**kwargs):super().__init__(*args,**kwargs);self.focusable=_C;self.focused=_A;self.min=min;self.max=max;self.step=step;self.value=round((min+max)/2/step)*step if initial_value==_B else initial_value;self.size=size
 	def handle_input(self):check_action(self._decrease,KEY_LEFT);check_action(self._increase,KEY_RIGHT)
 	def get_size(self):return Vector2(self.size,self.SLIDER_HEIGHT)
-	def get_color(self):return default_enabled_color if self.focused else super().get_color()
-	def draw(self,pos=_B):pos=(pos or self.position).duplicate();size=self.get_size();fill_rect(pos.x-1,pos.y,size.x+1,canvas_items_height(1)+1,background);cursor_pos=pos+Vector2(int((self.value-self.min)/(self.max-self.min)*(size.x-self.CURSOR_SIZE)),int((canvas_items_height(1)-self.CURSOR_SIZE)/2));pos.y+=int((canvas_items_height(1)-size.y)/2);fill_rect(pos.x-1,pos.y-1,size.x+2,size.y+2,self.get_overlay());fill_rect(pos.x,pos.y,size.x,size.y,self.get_color());fill_rect(cursor_pos.x-1,cursor_pos.y-1,self.CURSOR_SIZE+2,self.CURSOR_SIZE+2,self.get_overlay());fill_rect(cursor_pos.x,cursor_pos.y,self.CURSOR_SIZE,self.CURSOR_SIZE,self.get_color())
+	def draw(self,pos=_B):pos=(pos or self.position).duplicate();size=self.get_size();fill_rect(pos.x-1,pos.y,size.x+1,canvas_items_height(1)+1,self.get_style_color(ColorName.background));cursor_pos=pos+Vector2(int((self.value-self.min)/(self.max-self.min)*(size.x-self.CURSOR_SIZE)),int((canvas_items_height(1)-self.CURSOR_SIZE)/2));pos.y+=int((canvas_items_height(1)-size.y)/2);fill_rect(pos.x-1,pos.y-1,size.x+2,size.y+2,self.get_overlay());fill_rect(pos.x,pos.y,size.x,size.y,self.get_color());fill_rect(cursor_pos.x-1,cursor_pos.y-1,self.CURSOR_SIZE+2,self.CURSOR_SIZE+2,self.get_overlay());fill_rect(cursor_pos.x,cursor_pos.y,self.CURSOR_SIZE,self.CURSOR_SIZE,self.get_color())
 	def change_value_by(self,amount=1):self.value=clamp(self.value+amount,self.min,self.max);self.callback();self.draw()
 	def get_step(self):return self.step*(10 if keydown(KEY_SHIFT)else 1)
 	def _increase(self):self.change_value_by(self.get_step())
@@ -131,7 +148,7 @@ def parse_result():
 			elif isinstance(canvas_item,TextBox):row_result.append(canvas_item.txt)
 	return result
 def start():
-	fill_rect(0,0,320,222,background)
+	fill_rect(0,0,320,222,BASE_STYLE.get(ColorName.background))
 	for row in layout:
 		for canvas_item in row:
 			if isinstance(canvas_item,Button):canvas_item.enabled=_A
