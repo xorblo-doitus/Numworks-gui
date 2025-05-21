@@ -22,6 +22,15 @@ MOVES = {
 }
 TPS = 100
 
+def fetch_members(parent: dict, into: dict) -> None:
+  """Fetches parent class' members into the locals() provided. This is a workaround for MicroPython."""
+  if EMULATED:
+    return
+
+  for member in parent:
+    if not member.startswith("__"):
+      into[member] = parent[member]
+
 class ColorName:
   unhoverable = "unhoverable"
   background = "background"
@@ -36,11 +45,11 @@ class Style:
   def __init__(self, fallback: "Style" = None, **colors: dict[str, "ColorOutput"]) -> None:
     self.fallback: Style = fallback if fallback else BASE_STYLE
     for name in colors:
-      self.__setattr__(name, colors[name])
+      setattr(self, name, colors[name])
   
   def get(self, color: str) -> "ColorOutput":
     if hasattr(self, color):
-      return self.__getattribute__(color)
+      return getattr(self, color)
   
     if self.fallback:
       return self.fallback.get(color)
@@ -164,6 +173,8 @@ class Hoverable(CanvasItem):
 
 
 class Toggleable(CanvasItem):
+  _Togleable_locals = locals()
+  
   def __init__(self, overlay = None, enabled: bool = False, *args, **kwargs) -> None:
     super().__init__(*args, **kwargs)
     self.enabled: bool = enabled
@@ -202,9 +213,11 @@ class Label(Hoverable):
 
 
 class Button(Label, Toggleable):
-  def __init__(self, *args, enabled: bool = False, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.enabled: bool = enabled
+  fetch_members(Toggleable._Togleable_locals, locals())
+  
+  def __init__(self, *args, **kwargs):
+    Label.__init__(self, *args, **kwargs)
+    Toggleable.__init__(self, *args, **kwargs)
 
   def get_size(self) -> Vector2:
     return txt_size(self.txt)
