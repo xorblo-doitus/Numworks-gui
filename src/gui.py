@@ -49,7 +49,10 @@ class Style:
   
   def get(self, color: str) -> "ColorOutput":
     if hasattr(self, color):
-      return getattr(self, color)
+      c = getattr(self, color)
+      if type(c) == str:
+        return self.get(c)
+      return c
   
     if self.fallback:
       return self.fallback.get(color)
@@ -62,7 +65,7 @@ BASE_STYLE: Style = Style(**{
   ColorName.color: (255,132,61),
   ColorName.overlay: (89,37,6),
   ColorName.enabled: (0,153,152),
-  ColorName.focused: (0,153,152),
+  ColorName.focused: ColorName.enabled,
   ColorName.hovered: (255,255,255),
 })
 
