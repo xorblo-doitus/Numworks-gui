@@ -42,6 +42,9 @@ class ColorName:
 
 BASE_STYLE: "Style" = None
 class Style:
+  class ColorNotFound(Exception):
+    pass
+  
   def __init__(self, fallback: "Style" = None, **colors: dict[str, "ColorOutput"]) -> None:
     self.fallback: Style = fallback if fallback else BASE_STYLE
     for name in colors:
@@ -55,9 +58,19 @@ class Style:
       return c
   
     if self.fallback:
-      return self.fallback.get(color)
+      try:
+        return self.fallback.get(color)
+      except Style.ColorNotFound:
+        pass
     
-    return (255, 125, 125)
+    split = color.rsplit("/", 1)
+    if len(split) == 2:
+      try:
+        return self.get(split[0])
+      except Style.ColorNotFound:
+        pass
+    
+    raise Style.ColorNotFound("Style: color not found: " + color)
 
 BASE_STYLE: Style = Style(**{
   ColorName.unhoverable: (122,122,122),
