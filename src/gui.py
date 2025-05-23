@@ -50,27 +50,33 @@ class Style:
     for name in colors:
       setattr(self, name, colors[name])
   
-  def get(self, color: str) -> "ColorOutput":
-    if hasattr(self, color):
-      c = getattr(self, color)
-      if type(c) == str:
-        return self.get(c)
-      return c
+  def get(self, color_name: str) -> "ColorOutput":
+    """
+    Returns the color associated to the given `color_name`.
+    `color_name` can be composed like "border/hovered" to fallback on "border"
+    if no variant is defined for the hovered state.
+    """
+    
+    if hasattr(self, color_name):
+      color = getattr(self, color_name)
+      if type(color) == str:
+        return self.get(color)
+      return color
   
     if self.fallback:
       try:
-        return self.fallback.get(color)
+        return self.fallback.get(color_name)
       except Style.ColorNotFound:
         pass
     
-    split = color.rsplit("/", 1)
+    split = color_name.rsplit("/", 1)
     if len(split) == 2:
       try:
         return self.get(split[0])
       except Style.ColorNotFound:
         pass
     
-    raise Style.ColorNotFound("Style: color not found: " + color)
+    raise Style.ColorNotFound("Style: color not found: " + color_name)
 
 BASE_STYLE: Style = Style(**{
   ColorName.unhoverable: (122,122,122),
