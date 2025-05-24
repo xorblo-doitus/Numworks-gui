@@ -25,9 +25,6 @@ _VARIANT_DELIMITER = "/"
 
 def fetch_members(parent: dict, into: dict) -> None:
   """Fetches parent class' members into the locals() provided. This is a workaround for MicroPython."""
-  if EMULATED:
-    return
-
   for member in parent:
     if not member.startswith("__"):
       into[member] = parent[member]
@@ -74,10 +71,10 @@ class Style:
   class ColorNotFound(Exception):
     pass
   
-  def __init__(self, fallback: "Style" = None, **colors: dict[str, "ColorOutput"]) -> None:
+  def __init__(self, fallback: "Style" = None, colors: dict[str, "ColorOutput"] = {}) -> None:
     self.fallback: Style = fallback if fallback else BASE_STYLE
     for name in colors:
-      setattr(self, name, colors[name])
+      setattr(self, str(name), colors[name])
   
   def get(self, color_name: str) -> "ColorOutput":
     """
@@ -86,8 +83,8 @@ class Style:
     if no variant is defined for the hovered state.
     """
     
-    if hasattr(self, color_name):
-      color = getattr(self, color_name)
+    if hasattr(self, str(color_name)):
+      color = getattr(self, str(color_name))
       if isinstance(color, str):
         return self.get(color)
       return color
@@ -116,7 +113,7 @@ class Style:
 #   Colors.focused: (255, 183, 52),
 #   Colors.hovered: (255, 183, 52),
 # })
-BASE_STYLE: Style = Style(**{
+BASE_STYLE: Style = Style(None, {
   Colors.text: (89,37,6),
   Colors.border: Colors.text,
   Colors.background: (255,132,61),
@@ -250,6 +247,8 @@ class Toggleable(CanvasItem):
     return super().get_color(color_name.enabled(self.enabled))
 
 class TogleableAndHoverable(Toggleable, Hoverable):
+  _TogleableAndHoverable_locals = locals()
+  
   def get_color(self, color_name: ColorName):
     return super().get_color(color_name.hovered(self.hovered).enabled(self.enabled))
 
@@ -294,10 +293,12 @@ class Label(Hoverable):
     return super().get_color(color_name.uneditable())
 
 
-class Button(TogleableAndHoverable, Label):
+class Button(Label, TogleableAndHoverable):
   def __init__(self, txt: str, enabled: bool = False, *args, **kwargs):
     Label.__init__(self, txt, *args, **kwargs)
     Toggleable.__init__(self, enabled)
+  
+  fetch_members(TogleableAndHoverable._TogleableAndHoverable_locals, locals())
 
 
 class TextBox(Focusable):
