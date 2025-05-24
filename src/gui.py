@@ -21,6 +21,7 @@ MOVES = {
   KEY_LEFT: (-1, 0)
 }
 TPS = 100
+_VARIANT_DELIMITER = "/"
 
 def fetch_members(parent: dict, into: dict) -> None:
   """Fetches parent class' members into the locals() provided. This is a workaround for MicroPython."""
@@ -31,14 +32,42 @@ def fetch_members(parent: dict, into: dict) -> None:
     if not member.startswith("__"):
       into[member] = parent[member]
 
-class ColorName:
-  unhoverable = "unhoverable"
-  background = "background"
-  color = "color"
-  overlay = "overlay"
-  enabled = "enabled"
-  focused = "focused"
-  hovered = "hovered"
+class ColorName(str):
+  """
+  Specifiers (aka. variants) order :
+  border/uneditable/hovered/enabled/
+  border/focused
+  """
+  
+  def specified(self, variant: str, enabled: bool = True) -> "ColorName":
+    if enabled:
+      return ColorName(self + _VARIANT_DELIMITER + variant)
+    return self
+  
+  def uneditable(self, enabled: bool = True) -> "ColorName":
+    return self.specified("uneditable", enabled)
+  def hovered(self, enabled: bool = True) -> "ColorName":
+    return self.specified("hovered", enabled)
+  def enabled(self, enabled: bool = True) -> "ColorName":
+    return self.specified("enabled", enabled)
+  def focused(self, enabled: bool = True) -> "ColorName":
+    return self.specified("focused", enabled)
+
+class Colors:
+  text = ColorName("text")
+  border = ColorName("border")
+  background = ColorName("background")
+  
+  screen = ColorName("screen")
+  
+  # unhoverable = ColorName("unhoverable")
+  # background = ColorName("background")
+  # color = ColorName("color")
+  # overlay = ColorName("overlay")
+  # enabled = ColorName("enabled")
+  # focused = ColorName("focused")
+  # hovered = ColorName("hovered")
+
 
 BASE_STYLE: "Style" = None
 class Style:
@@ -59,7 +88,7 @@ class Style:
     
     if hasattr(self, color_name):
       color = getattr(self, color_name)
-      if type(color) == str:
+      if isinstance(color, str):
         return self.get(color)
       return color
   
@@ -69,7 +98,7 @@ class Style:
       except Style.ColorNotFound:
         pass
     
-    split = color_name.rsplit("/", 1)
+    split = color_name.rsplit(_VARIANT_DELIMITER, 1)
     if len(split) == 2:
       try:
         return self.get(split[0])
@@ -78,14 +107,30 @@ class Style:
     
     raise Style.ColorNotFound("Style: color not found: " + color_name)
 
+# BASE_STYLE: Style = Style(**{
+#   Colors.unhoverable: (160, 164, 160),
+#   Colors.background: (248, 252, 248),
+#   Colors.color: (248, 252, 248),
+#   Colors.overlay: (0, 0, 0),
+#   Colors.enabled: (200, 255, 200),
+#   Colors.focused: (255, 183, 52),
+#   Colors.hovered: (255, 183, 52),
+# })
 BASE_STYLE: Style = Style(**{
-  ColorName.unhoverable: (122,122,122),
-  ColorName.background: (200,255,255),
-  ColorName.color: (255,132,61),
-  ColorName.overlay: (89,37,6),
-  ColorName.enabled: (0,153,152),
-  ColorName.focused: ColorName.enabled,
-  ColorName.hovered: (255,255,255),
+  Colors.text: (89,37,6),
+  Colors.border: Colors.text,
+  Colors.background: (255,132,61),
+  
+  Colors.text.hovered(): (255,255,255),
+  Colors.border.hovered(): Colors.text.hovered(),
+  
+  Colors.screen: (200,255,255),
+  Colors.text.uneditable().hovered(): (122,122,122),
+  Colors.border.uneditable().hovered(): Colors.text.uneditable().hovered(),
+  
+  Colors.background.enabled(): (0,153,152),
+  Colors.background.hovered().enabled(): Colors.background.enabled(),
+  Colors.background.focused(): Colors.background.enabled(),
 })
 
 
@@ -174,11 +219,8 @@ class CanvasItem():
     return self.style or BASE_STYLE
   
   
-  def get_color(self):
-    return self.get_style_color(ColorName.color)
-  
-  def get_overlay(self):
-    return self.get_style_color(ColorName.overlay)
+  def get_color(self, color_name: ColorName):
+    return self.get_style_color(color_name)
   
   def handle_input(self) -> None:
     """Virtual"""
@@ -190,22 +232,26 @@ class Hoverable(CanvasItem):
     super().__init__(*args, **kwargs)
     self.hovered: bool = False
   
-  def get_overlay(self):
-    return self.get_style_color(ColorName.hovered) if self.hovered else super().get_overlay()
+  def get_color(self, color_name: ColorName):
+    return super().get_color(color_name.hovered(self.hovered))
 
 
 class Toggleable(CanvasItem):
   _Togleable_locals = locals()
   
-  def __init__(self, overlay = None, enabled: bool = False, *args, **kwargs) -> None:
+  def __init__(self, enabled: bool = False, *args, **kwargs) -> None:
     super().__init__(*args, **kwargs)
     self.enabled: bool = enabled
   
   def toggle(self):
     self.enabled = not self.enabled
   
-  def get_color(self):
-    return self.get_style_color(ColorName.enabled) if self.enabled else super().get_color()
+  def get_color(self, color_name: ColorName):
+    return super().get_color(color_name.enabled(self.enabled))
+
+class TogleableAndHoverable(Toggleable, Hoverable):
+  def get_color(self, color_name: ColorName):
+    return super().get_color(color_name.hovered(self.hovered).enabled(self.enabled))
 
 
 class Focusable(Hoverable):
@@ -214,41 +260,44 @@ class Focusable(Hoverable):
     super().__init__(hovered, *args, **kwargs)
     self.focused = False
   
-  def get_color(self):
-    return self.get_style_color(ColorName.focused) if self.focused else super().get_color()
+  def get_color(self, color_name: ColorName):
+    return self.get_style_color(color_name.focused()) if self.focused else super().get_color(color_name)
 
 
 class Label(Hoverable):
   def __init__(self, txt: str = "Lorem Ipsum", *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.txt: str = txt
-    # self.hovered: bool = hovered
 
   def get_size(self) -> Vector2:
     return txt_size(self.txt)
-
-  def draw(self, pos: Vector2 = None):
-    pos = pos or self.position
-    size = add_overlay(self.get_size())
-    fill_rect(pos.x-1, pos.y-1, size.x, size.y, self.get_style_color(ColorName.unhoverable) if self.hovered else self.get_overlay())
-    draw_string(self.txt,pos.x,pos.y, self.get_style_color(ColorName.unhoverable) if self.hovered else self.get_overlay(), self.get_color())
-
-
-class Button(Label, Toggleable):
-  fetch_members(Toggleable._Togleable_locals, locals())
   
-  def __init__(self, *args, **kwargs):
-    Label.__init__(self, *args, **kwargs)
-    Toggleable.__init__(self, *args, **kwargs)
-
-  def get_size(self) -> Vector2:
-    return txt_size(self.txt)
-
   def draw(self, pos: Vector2 = None):
     pos = pos or self.position
     size = add_overlay(self.get_size())
-    fill_rect(pos.x-1, pos.y-1, size.x, size.y, self.get_overlay())
-    draw_string(self.txt,pos.x,pos.y, self.get_overlay(), self.get_color())
+    fill_rect(
+      pos.x-1,
+      pos.y-1,
+      size.x,
+      size.y,
+      self.get_color(Colors.border)
+    )
+    draw_string(
+      self.txt,
+      pos.x,
+      pos.y,
+      self.get_color(Colors.text),
+      self.get_color(Colors.background),
+    )
+  
+  def get_color(self, color_name: ColorName):
+    return super().get_color(color_name.uneditable())
+
+
+class Button(TogleableAndHoverable, Label):
+  def __init__(self, txt: str, enabled: bool = False, *args, **kwargs):
+    Label.__init__(self, txt, *args, **kwargs)
+    Toggleable.__init__(self, enabled)
 
 
 class TextBox(Focusable):
@@ -315,14 +364,35 @@ class TextBox(Focusable):
     offset: int = 0
     if self.txt_pos > self.size:
       offset = self.txt_pos - self.size
-    fill_rect(pos.x-1, pos.y-1, size_with_overlay.x, size_with_overlay.y, self.get_overlay())
-    fill_rect(pos.x, pos.y, size.x, size.y, self.get_color())
-    draw_string(self.txt[offset:min(offset+self.size, len(self.txt))],pos.x,pos.y, (0, 0, 0), self.get_color()) # TODO unhardcode value
+    fill_rect(
+      pos.x-1,
+      pos.y-1,
+      size_with_overlay.x,
+      size_with_overlay.y,
+      self.get_color(Colors.border)
+    )
+    fill_rect(
+      pos.x,
+      pos.y,
+      size.x,
+      size.y,
+      (255, 255, 255), # TODO self.get_color(Colors.background)
+    )
+    draw_string(
+      self.txt[offset:min(offset+self.size, len(self.txt))],
+      pos.x,
+      pos.y,
+      (0, 0, 0), # TODO unhardcode value
+      (255, 255, 255), # TODO self.get_color(Colors.background)
+    )
     if self.focused:
-      fill_rect(pos.x + txt_len_size(self.txt_pos-offset).x, pos.y, 1, size.y, (0, 0, 0)) # TODO unhardcode value
-  
-  def get_color(self):
-    return (255, 255, 255) # TODO unhardcode value
+      fill_rect(
+        pos.x + txt_len_size(self.txt_pos-offset).x,
+        pos.y,
+        1,
+        size.y,
+        (0, 0, 0) # TODO unhardcode value
+      ) 
   
   def delete_at_caret(self) -> None:
     if not self.txt or self.txt_pos == 0:
@@ -348,8 +418,6 @@ class Slider(Focusable):
   
   def __init__(self, min: float, max: float, step: float = 1, initial_value: float = None, size: int = 100, *args, **kwargs) -> None:
     super().__init__(*args, **kwargs)
-    self.focusable = True
-    self.focused = False
     self.min: float = min
     self.max: float = max
     self.step: float = step
@@ -366,13 +434,46 @@ class Slider(Focusable):
   def draw(self, pos: Vector2 = None) -> None:
     pos = (pos or self.position).duplicate()
     size = self.get_size()
-    fill_rect(pos.x-1, pos.y, size.x+1, canvas_items_height(1) + 1, self.get_style_color(ColorName.background))
     cursor_pos = pos + Vector2(int((self.value - self.min) / (self.max - self.min) * (size.x - self.CURSOR_SIZE)), int((canvas_items_height(1) - self.CURSOR_SIZE) / 2))
+    
+    fill_rect(
+      pos.x-1,
+      pos.y,
+      size.x+1,
+      canvas_items_height(1) + 1,
+      self.get_color(Colors.screen)
+    )
+    
     pos.y += int((canvas_items_height(1) - size.y) / 2)
-    fill_rect(pos.x-1, pos.y-1, size.x+2, size.y+2, self.get_overlay())
-    fill_rect(pos.x, pos.y, size.x, size.y, self.get_color())
-    fill_rect(cursor_pos.x-1, cursor_pos.y-1, self.CURSOR_SIZE+2, self.CURSOR_SIZE+2, self.get_overlay())
-    fill_rect(cursor_pos.x, cursor_pos.y, self.CURSOR_SIZE, self.CURSOR_SIZE, self.get_color())
+    
+    fill_rect(
+      pos.x-1,
+      pos.y-1,
+      size.x+2,
+      size.y+2,
+      self.get_color(Colors.border)
+    )
+    fill_rect(
+      pos.x,
+      pos.y,
+      size.x,
+      size.y,
+      self.get_color(Colors.background)
+    )
+    fill_rect(
+      cursor_pos.x-1,
+      cursor_pos.y-1,
+      self.CURSOR_SIZE+2,
+      self.CURSOR_SIZE+2,
+      self.get_color(Colors.border)
+    )
+    fill_rect(
+      cursor_pos.x,
+      cursor_pos.y,
+      self.CURSOR_SIZE,
+      self.CURSOR_SIZE,
+      self.get_color(Colors.background)
+    )
     # draw_string(self.txt,pos.x,pos.y, default_hover_overlay if self.hovered else self.get_overlay(), default_enabled_color if self.enabled else self.get_color())
   
   def change_value_by(self, amount: float = 1) -> None:
@@ -451,7 +552,7 @@ def parse_result() -> list[list]:
 
 
 def start():
-  fill_rect(0, 0, 320, 222, BASE_STYLE.get(ColorName.background))
+  fill_rect(0, 0, 320, 222, BASE_STYLE.get(Colors.screen))
 
   for row in layout:
     for canvas_item in row:
