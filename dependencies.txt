@@ -1,1 +1,0 @@
-https://raw.githubusercontent.com/xorblo-doitus/Numworks-colors/refs/heads/main/src/colors.py
