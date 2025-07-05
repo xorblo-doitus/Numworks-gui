@@ -66,13 +66,13 @@ class Colors:
   # hovered = ColorName("hovered")
 
 
-BASE_STYLE: "Style" = None
+_BASE_STYLE: "Style" = None
 class Style:
   class ColorNotFound(Exception):
     pass
   
   def __init__(self, fallback: "Style" = None, colors: dict[str, "ColorOutput"] = {}) -> None:
-    self.fallback: Style = fallback if fallback else BASE_STYLE
+    self.fallback: Style = fallback if fallback else _BASE_STYLE
     for name in colors:
       setattr(self, str(name), colors[name])
   
@@ -104,16 +104,38 @@ class Style:
     
     raise Style.ColorNotFound("Style: color not found: " + color_name)
 
-# BASE_STYLE: Style = Style(**{
-#   Colors.unhoverable: (160, 164, 160),
-#   Colors.background: (248, 252, 248),
-#   Colors.color: (248, 252, 248),
-#   Colors.overlay: (0, 0, 0),
-#   Colors.enabled: (200, 255, 200),
-#   Colors.focused: (255, 183, 52),
-#   Colors.hovered: (255, 183, 52),
-# })
-BASE_STYLE: Style = Style(None, {
+def set_base_style(new_style: Style) -> None:
+  global _BASE_STYLE
+  _BASE_STYLE = new_style
+
+# Use Numworks' palette: https://github.com/numworks/epsilon/blob/master/apps/elements/palette.h
+MODERN_STYLE: Style = Style(None, {
+  Colors.screen: (247,249,250),
+  Colors.background: Colors.screen,
+  Colors.text: (0,0,0),
+  Colors.border: (167, 167, 167),
+  
+  Colors.border.hovered(): (51, 51, 51),
+  Colors.border.focused(): Colors.border.hovered(),
+  
+  # Colors.text.enabled(): Colors.screen,
+  Colors.background.enabled(): (255, 183, 52),
+  Colors.background.focused(): (255, 183, 52),
+  
+  Colors.background.hovered().enabled(): Colors.background.enabled(),
+  
+  Colors.border.uneditable(): Colors.screen,
+  Colors.border.uneditable().hovered():(176, 184, 216),
+  
+  
+  # Colors.unhoverable: (160, 164, 160),
+  # Colors.color: (248, 252, 248),
+  # Colors.overlay: (0, 0, 0),
+  # Colors.enabled: (200, 255, 200),
+  # Colors.focused: (255, 183, 52),
+  # Colors.hovered: (255, 183, 52),
+})
+CLASSIC_STYLE: Style = Style(None, {
   Colors.text: (89,37,6),
   Colors.border: Colors.text,
   Colors.background: (255,132,61),
@@ -129,6 +151,7 @@ BASE_STYLE: Style = Style(None, {
   Colors.background.hovered().enabled(): Colors.background.enabled(),
   Colors.background.focused(): Colors.background.enabled(),
 })
+set_base_style(MODERN_STYLE)
 
 
 layout: list[list["CanvasItem"]] = []
@@ -213,7 +236,7 @@ class CanvasItem():
     return self.get_style().get(name)
   
   def get_style(self) -> Style:
-    return self.style or BASE_STYLE
+    return self.style or _BASE_STYLE
   
   
   def get_color(self, color_name: ColorName):
@@ -370,21 +393,21 @@ class TextBox(Focusable):
       pos.y-1,
       size_with_overlay.x,
       size_with_overlay.y,
-      self.get_color(Colors.border)
+      self.get_color(Colors.border),
     )
     fill_rect(
       pos.x,
       pos.y,
       size.x,
       size.y,
-      (255, 255, 255), # TODO self.get_color(Colors.background)
+      self.get_color(Colors.background),
     )
     draw_string(
       self.txt[offset:min(offset+self.size, len(self.txt))],
       pos.x,
       pos.y,
-      (0, 0, 0), # TODO unhardcode value
-      (255, 255, 255), # TODO self.get_color(Colors.background)
+      self.get_color(Colors.text),
+      self.get_color(Colors.background),
     )
     if self.focused:
       fill_rect(
@@ -392,8 +415,8 @@ class TextBox(Focusable):
         pos.y,
         1,
         size.y,
-        (0, 0, 0) # TODO unhardcode value
-      ) 
+        self.get_color(Colors.border),
+      )
   
   def delete_at_caret(self) -> None:
     if not self.txt or self.txt_pos == 0:
@@ -553,7 +576,7 @@ def parse_result() -> list[list]:
 
 
 def start():
-  fill_rect(0, 0, 320, 222, BASE_STYLE.get(Colors.screen))
+  fill_rect(0, 0, 320, 222, _BASE_STYLE.get(Colors.screen))
 
   for row in layout:
     for canvas_item in row:
