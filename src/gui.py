@@ -550,10 +550,9 @@ def example() -> None:
   slider_callback()
   
   layout = [
-    [Button("Az"), Button("By"), Button("Cx")],
+    [Button("I"), Button("am"), Button("button")],
     [slider, label],
-    [Button("Truc"), Button("Machin")],
-    [TextBox()]
+    [Label("Type some text:"), TextBox()]
   ]
   print(start())
 
