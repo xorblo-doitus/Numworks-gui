@@ -6,6 +6,7 @@ a simple way to create a Graphical UI.
 - normal version: [src/gui.py](src/gui.py)
 - minified version: [minified/gui.py](src/gui.py)
 
+You can also get this script on [Numworks](https://my.numworks.com/python/patou/gui_min).
 
 ## Overview
 
