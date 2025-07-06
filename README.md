@@ -1,4 +1,4 @@
-# Gui
+# Numworks Gui
 
 `gui.py` is a Python script for the Numworks calculator. It provides
 a simple way to create a Graphical UI.
